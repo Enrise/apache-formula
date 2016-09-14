@@ -1,0 +1,69 @@
+## File managed by Salt.
+## Source: {{ source }}
+
+# Non-SSL Vhost
+<VirtualHost {{ listen_ip|default('*') }}:{{ listen_port|default('80') }}>
+    DocumentRoot {{ webroot }}
+    ServerName {{ domain }}
+    ServerAlias www.{{ domain }} {{ aliases|default([])|join(" ") }}
+
+    <IfModule mpm_itk_module>
+      AssignUserID {{ owner|default('www-data') }} {{ owner|default('www-data') }}
+    </IfModule>
+
+    {%- if logdir is defined %}
+    CustomLog {{ logdir }}/{{ domain }}_access.log combined
+    ErrorLog {{ logdir }}/{{ domain }}_error.log
+    {% endif -%}
+
+    {{ extra_config|default([])|join("\n")|indent(2) }}
+
+    {%- if ssl is defined and ssl is mapping and ssl.forward is defined and ssl.forward == True %}
+    # Force redirect Non-SSL requests to SSL
+    RewriteEngine On
+    RewriteCond %{HTTPS} off
+    RewriteCond %{HTTP_HOST} {{ domain }}
+    RewriteRule (.*) https://%{HTTP_HOST}:{{ listen_port_ssl|default('443') }}%{REQUEST_URI}
+    {% endif %}
+
+    ProxyPreserveHost On
+    ProxyPass        "/" "{{ proxy_pass }}"
+    ProxyPassReverse "/" "{{ proxy_pass }}"
+
+</VirtualHost>
+
+{%- if ssl is defined and ssl is mapping %}
+# SSL Vhost
+<IfModule mod_ssl.c>
+  <VirtualHost {{ listen_ip_ssl|default('*') }}:{{ listen_port_ssl|default('443') }}>
+    SSLEngine On
+    SSLProtocol All -SSLv2 -SSLv3
+    SSLCipherSuite ALL:!ADH:RC4+RSA:+HIGH:+MEDIUM:-LOW:-SSLv2:-EXP
+
+    SSLCertificateFile /etc/ssl/certs/{{ ssl.cert }}
+    SSLCertificateKeyFile /etc/ssl/private/{{ ssl.key }}
+    {% if ssl.ca is defined %}
+    SSLCertificateChainFile /etc/ssl/certs/{{ ssl.ca }}
+    {% endif %}
+    SSLOptions +StdEnvVars
+
+    ServerName {{ domain }}
+    ServerAlias www.{{ domain }} {{ aliases|default([])|join(" ") }}
+
+    <IfModule mpm_itk_module>
+      AssignUserID {{ owner|default('www-data') }} {{ owner|default('www-data') }}
+    </IfModule>
+
+    {%- if logdir is defined %}
+    CustomLog {{ logdir }}/{{ domain }}_access.log combined
+    ErrorLog {{ logdir }}/{{ domain }}_error.log
+    {% endif -%}
+
+    ProxyPreserveHost On
+    ProxyPass        "/" "{{ proxy_pass }}"
+    ProxyPassReverse "/" "{{ proxy_pass }}"    
+
+    {{ extra_config|default([])|join("\n")|indent(2) }}
+  </VirtualHost>
+</IfModule>
+{% endif -%}
