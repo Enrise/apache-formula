@@ -8,7 +8,7 @@
     ServerAlias www.{{ domain }} {{ aliases|default([])|join(" ") }}
 
     <IfModule mpm_itk_module>
-      AssignUserID {{ owner|default('www-data') }} {{ owner|default('www-data') }}
+      AssignUserID {{ vhost_user|default('www-data') }} {{ vhost_user|default('www-data') }}
     </IfModule>
 
     <Directory {{ webroot }}>
@@ -62,7 +62,7 @@
     ServerAlias www.{{ domain }} {{ aliases|default([])|join(" ") }}
 
     <IfModule mpm_itk_module>
-      AssignUserID {{ owner|default('www-data') }} {{ owner|default('www-data') }}
+      AssignUserID {{ vhost_user|default('www-data') }} {{ vhost_user|default('www-data') }}
     </IfModule>
 
     <Directory {{ webroot }}>
