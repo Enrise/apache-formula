@@ -1,6 +1,9 @@
+{%- set has_ssl_cert = False %}
+{%- if ssl is defined and ssl is mapping %}
+{%- set has_ssl_cert = salt['file.file_exists']('/etc/ssl/certs/' ~ ssl.cert) %}
+{% endif -%}
 ## File managed by Salt.
 ## Source: {{ source }}
-
 # Non-SSL Vhost
 <VirtualHost {{ listen_ip|default('*') }}:{{ listen_port|default('80') }}>
     DocumentRoot {{ webroot }}
@@ -33,16 +36,27 @@
 
     {{ extra_config|default([])|join("\n")|indent(2) }}
 
-    {%- if ssl is defined and ssl is mapping and ssl.forward is defined and ssl.forward == True %}
+    {%- if ssl is defined and ssl is mapping and ssl.forward is defined and ssl.forward == True and has_ssl_cert %}
     # Force redirect Non-SSL requests to SSL
     RewriteEngine On
     RewriteCond %{HTTPS} off
     RewriteCond %{HTTP_HOST} {{ domain }}
     RewriteRule (.*) https://%{HTTP_HOST}:{{ listen_port_ssl|default('443') }}%{REQUEST_URI}
     {% endif %}
+
+    {%- if ssl is defined and ssl is mapping and ssl.letsencrypt is defined and ssl.letsencrypt == True %}
+    # Deal with LetsEncrypt
+    AliasMatch ^/.well-known/acme-challenge/(.*)$ /opt/letsencrypt/www/$1
+    <Directory "/opt/letsencrypt/www/">
+        Options None
+        AllowOverride None
+        ForceType text/plain
+        RedirectMatch 404 "^(?!/\.well-known/acme-challenge/[\w-]{43}$)"
+    </Directory>
+    {%- endif %}
 </VirtualHost>
 
-{%- if ssl is defined and ssl is mapping %}
+{%- if ssl is defined and ssl is mapping and has_ssl_cert %}
 # SSL Vhost
 <IfModule mod_ssl.c>
   <VirtualHost {{ listen_ip_ssl|default('*') }}:{{ listen_port_ssl|default('443') }}>
